@@ -18,6 +18,35 @@ def intro(d, ts, te):
     """
     )
 
+def kubernetes(d, ts, te):
+    st.write("# Fake kubeview")
+    options = st.multiselect(
+        'Namespaces',
+        ['kube-system', 'kubevirt', 'mongodb', 'longhorn' ],
+        [ 'kube-system', 'kubevirt' ]
+    )
+
+    if len(options) == 0:
+        st.write("selected all")
+
+    # FIXME: columns number should be options len
+    style = "<style>h2 {text-align: center;}</style>"
+    st.markdown(style, unsafe_allow_html=True)
+    col1, col2, = st.columns(2)
+    
+    with col1:
+        container = st.container(border=True)
+        container.markdown("## kube-virt")
+        container.markdown("### :red[Pods: 15]")
+        container.markdown(":green[Ready: 11]")
+        container.markdown(":red[CrashloopBackoff: 4]")
+    with col2:
+        container = st.container(border=True)
+        container.markdown("## kube-system")
+        container.markdown("### :green[Pods: 24]")
+        container.markdown(":green[Ready: 24]")
+        container.markdown(":grey[CrashloopBackoff: 0]")
+
 def columns(d, ts, te):
 
     st.write("# Fake metrics")
@@ -123,7 +152,8 @@ def columns(d, ts, te):
 
 
 page_names_to_funcs = {
-    "—": columns,
+    "—": kubernetes,
+    "columns": columns,
     "intro": intro
 }
 st.set_page_config(
