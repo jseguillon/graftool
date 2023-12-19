@@ -6,17 +6,9 @@ import plotly.figure_factory as ff
 import plotly.graph_objs as go
 
 import pandas as pd
+from datetime import timedelta  
 
 
-def intro(d, ts, te):
-
-    st.write("# Welcome to Graftool ! 👋")
-
-    st.markdown(
-        """
-        Hello
-    """
-    )
 
 def kubernetes(d, ts, te):
     st.write("# Fake kubeview")
@@ -47,24 +39,20 @@ def kubernetes(d, ts, te):
         container.markdown(":green[Ready: 24]")
         container.markdown(":grey[CrashloopBackoff: 0]")
 
-def columns(d, ts, te):
+def to_datetime(dt64):
+    return (dt64 - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
 
-    st.write("# Fake metrics")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    # FIXME: use dynamic time and dates
-    # FIXME: not the best way (?) => no groups in column view
-    with col1:
+def do_fake_metrics(title="eth0", y_axis_title="Bandwith"):
         d_start = d[0] # numpy.datetime64
         d_end = d[1] # numpy.datetime64
 
         # Assuming d_start and d_end are datetime.date objects and ts, te are datetime.time objects
         d_start = datetime.date(2023, 12, 18)  # Replace with your actual start date
-        d_end = datetime.date(2023, 12, 19)    # Replace with your actual end date
-        ts = datetime.time(8, 45)              # Replace with your actual start time
-        te = datetime.time(11, 45)             # Replace with your actual end time
+        d_end = datetime.date(2023, 12, 18)    # Replace with your actual end date
 
+        d_start = pd.to_datetime(d[0])
+        d_end = pd.to_datetime(d[1])
+        
         # Combine date and time into datetime.datetime
         start_datetime = datetime.datetime.combine(d_start, ts)
         end_datetime = datetime.datetime.combine(d_end, te)
@@ -77,84 +65,65 @@ def columns(d, ts, te):
         interval = datetime.timedelta(minutes=1)  # You can change the interval
         timestamps = [start_datetime + i * interval for i in range(int((end_datetime - start_datetime) / interval))]
 
-        # Simulate bandwidth data for 3 series
-        bandwidth_series_1 = np.random.rand(len(timestamps))
-        bandwidth_series_2 = np.random.rand(len(timestamps))
-        bandwidth_series_3 = np.random.rand(len(timestamps))
+        # Convert datetime objects to minutes since the start
+        timestamps_in_minutes = [(t - start_datetime).total_seconds() / 60.0 for t in timestamps]
+        timestamps_in_minutes = np.array(timestamps_in_minutes)
 
-        # Combine data
-        data = np.array([timestamps, bandwidth_series_1, bandwidth_series_2, bandwidth_series_3]).T
+        # # Define a base sine wave function for simulating bandwidth
+        # def sine_wave(t, amplitude=1, frequency=1, phase=0):
+        #     return amplitude * np.sin(2 * np.pi * frequency * t + phase)
+
+        bandwidth_series_1 = np.random.randint(800, 1200, size=len(timestamps))
+        bandwidth_series_2 = np.random.randint(500, 1100, size=len(timestamps))
+        bandwidth_series_3 = np.random.randint(900, 1300, size=len(timestamps))
 
         # Create a Plotly figure
         fig = go.Figure()
 
         # Add traces for each bandwidth series
-        fig.add_trace(go.Scatter(x=timestamps, y=bandwidth_series_1, mode='lines', name='Series 1'))
-        fig.add_trace(go.Scatter(x=timestamps, y=bandwidth_series_2, mode='lines', name='Series 2'))
-        fig.add_trace(go.Scatter(x=timestamps, y=bandwidth_series_3, mode='lines', name='Series 3'))
+        fig.add_trace(go.Scatter(x=timestamps, y=bandwidth_series_1, mode='lines', name='kubevirt-xyzv'))
+        fig.add_trace(go.Scatter(x=timestamps, y=bandwidth_series_2, mode='lines', name='kubevirt-plpes'))
+        fig.add_trace(go.Scatter(x=timestamps, y=bandwidth_series_3, mode='lines', name='kubevirt-sasas'))
 
         # Update layout
         fig.update_layout(
-            title="Prometheus Bandwidth on eth0 Over Time",
+            title=title,
             xaxis_title="Time",
-            yaxis_title="Bandwidth",
+            yaxis_title=y_axis_title,
             xaxis=dict(
                 # If you have many timestamps, you might want to format the ticks accordingly
                 tickformat='%Y-%m-%d %H:%M:%S',
                 tickmode='auto',
-                nticks=20
+                nticks=10,
+                tickangle=-45
             ),
             yaxis=dict(
-                range=[0, max(np.max(bandwidth_series_1), np.max(bandwidth_series_2), np.max(bandwidth_series_3)) * 1.1]  # Adjust y-axis to fit the data
+                range=[min(np.min(bandwidth_series_1), np.min(bandwidth_series_2), np.min(bandwidth_series_3))  , max(np.max(bandwidth_series_1), np.max(bandwidth_series_2), np.max(bandwidth_series_3)) * 1.1]  # Adjust y-axis to fit the data
             ),
-            legend_title="Series"
+            legend_title="Pod"
         )
 
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, use_container_width=True)
 
+def columns(d, ts, te):
+
+    st.write("# Fake metrics")
+
+    do_fake_metrics("Disk usage", "Gi")    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        do_fake_metrics()
 
     with col2:
-        # Add histogram data
-        x1 = np.random.randn(200) - 2
-        x2 = np.random.randn(200)
-        x3 = np.random.randn(200) + 2
-
-        # Group data together
-        hist_data = [x1, x2, x3]
-
-        group_labels = ['Group 1', 'Group 2', 'Group 3']
-
-        # Create distplot with custom bin_size
-        fig = ff.create_distplot(
-                hist_data, group_labels, bin_size=[.1, .25, .5])
-
-        # Plot!
-        st.plotly_chart(fig, use_container_width=True)
+        do_fake_metrics("Disk io", "kbps")
 
 
-    with col3:
-        # Add histogram data
-        x1 = np.random.randn(200) - 2
-        x2 = np.random.randn(200)
-        x3 = np.random.randn(200) + 2
-
-        # Group data together
-        hist_data = [x1, x2, x3]
-
-        group_labels = ['Group 1', 'Group 2', 'Group 3']
-
-        # Create distplot with custom bin_size
-        fig = ff.create_distplot(
-                hist_data, group_labels, bin_size=[.1, .25, .5])
-
-        # Plot!
-        st.plotly_chart(fig, use_container_width=True)
 
 
 page_names_to_funcs = {
     "—": kubernetes,
-    "columns": columns,
-    "intro": intro
+    "metrics": columns
 }
 st.set_page_config(
     page_title="Graftool",
@@ -177,15 +146,13 @@ dec_31 = datetime.date(next_year, 12, 31)
 
 d = st.sidebar.date_input(
     "Date range",
-    (jan_1, datetime.date(next_year, 1, 7)),
-    jan_1,
-    dec_31,
+    (today, today),
     format="MM.DD.YYYY",
 )
 
 # TODO: set as curr date
-ts = st.sidebar.time_input('Start time', datetime.time(8, 45))
-te = st.sidebar.time_input('End time', datetime.time(11, 45))
+ts = st.sidebar.time_input('Start time', datetime.datetime.now())
+te = st.sidebar.time_input('End time', datetime.datetime.now()+timedelta(minutes=45))
 
 page_names_to_funcs[demo_name](d, ts, te)
 
