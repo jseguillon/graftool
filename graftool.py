@@ -8,37 +8,62 @@ import plotly.graph_objs as go
 
 import pandas as pd
 from datetime import timedelta  
+from kubernetes import client, config
 
 
+def get_pod_status(namespace):
+    config.load_kube_config()  # or load_incluster_config() if running inside a cluster
+    v1 = client.CoreV1Api()
+    pod_list = v1.list_namespaced_pod(namespace)
+    status_count = {'Ready': 0, 'CrashloopBackoff': 0, 'CreateContainerError': 0, 'Total': 0}
 
-def kubernetes(d, ts, te):
-    st.write("# Fake kubeview")
+    for pod in pod_list.items:
+        status_count['Total'] += 1
+        if any([cs.state.waiting and cs.state.waiting.reason == 'CrashLoopBackOff' for cs in pod.status.container_statuses]):
+            status_count['CrashloopBackoff'] += 1
+        if any([cs.state.waiting and cs.state.waiting.reason == 'CreateContainerError' for cs in pod.status.container_statuses]):
+            status_count['CreateContainerError'] += 1
+        elif pod.status.phase == 'Running':
+            status_count['Ready'] += 1
+
+    return status_count
+
+def display_namespace_info(namespace):
+    status = get_pod_status(namespace)
+    container = st.container(border=True)
+    style = "<style>h2 {text-align: center;}</style>"
+    st.markdown(style, unsafe_allow_html=True)
+    has_error = (status['CrashloopBackoff'] != 0) or (status['CreateContainerError'] != 0)
+
+    container.markdown(f"## {namespace}")
+    pods_text = f" Pods: {status['Total']}"
+    if has_error: 
+        pods_text = f":red[{pods_text}]"
+    else: 
+        pods_text = f":green[{pods_text}]"
+    container.markdown(f"### {pods_text}")
+    container.markdown(f"Ready: {status['Ready']}")
+    container.markdown(f"CrashloopBackoff: {status['CrashloopBackoff']}")
+    create_error_text = f"CreateContainerError: {status['CreateContainerError']}"
+    if has_error: 
+        create_error_text = f":red[{create_error_text}]"
+    container.markdown(f"{create_error_text}")
+
+def kubernetes_dashboard(d, ts, te):
+    st.write("# Kubernetes Dashboard")
     options = st.multiselect(
         'Namespaces',
-        ['kube-system', 'kubevirt', 'mongodb', 'longhorn' ],
-        [ 'kube-system', 'kubevirt' ]
+        ['kube-system', 'monitoring', 'default'],
+        ['kube-system', 'monitoring']
     )
 
     if len(options) == 0:
-        st.write("selected all")
+        st.write("Selected all")
 
-    # FIXME: columns number should be options len
-    style = "<style>h2 {text-align: center;}</style>"
-    st.markdown(style, unsafe_allow_html=True)
-    col1, col2, = st.columns(2)
-    
-    with col1:
-        container = st.container(border=True)
-        container.markdown("## kube-virt")
-        container.markdown("### :red[Pods: 15]")
-        container.markdown(":green[Ready: 11]")
-        container.markdown(":red[CrashloopBackoff: 4]")
-    with col2:
-        container = st.container(border=True)
-        container.markdown("## kube-system")
-        container.markdown("### :green[Pods: 24]")
-        container.markdown(":green[Ready: 24]")
-        container.markdown(":grey[CrashloopBackoff: 0]")
+    cols = st.columns(len(options))
+    for i, namespace in enumerate(options):
+        with cols[i]:
+            display_namespace_info(namespace)
 
 def to_datetime(dt64):
     return (dt64 - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
@@ -116,7 +141,6 @@ def columns(d, ts, te):
     start_datetime = datetime.datetime.combine(d_start, ts)
     end_datetime = datetime.datetime.combine(d_end, te)
 
-    # do_fake_metrics("Disk usage", "Gi")    
     do_fake_metrics("container_cpu_usage_seconds_total", start_datetime.timestamp(), end_datetime.timestamp(), title="CPU Usage Over Time")
     col1, col2 = st.columns(2)
 
@@ -130,7 +154,7 @@ def columns(d, ts, te):
 
 
 page_names_to_funcs = {
-    "—": kubernetes,
+    "—": kubernetes_dashboard,
     "metrics": columns
 }
 st.set_page_config(
