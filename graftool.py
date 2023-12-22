@@ -1,3 +1,5 @@
+# TODO: add some debug flag
+# TODO: add minimalisics unit test
 # TODO: create or find State timeline plus  Time series
 # streamlit-heatmap-chart
 # streamlit-chart-card
@@ -12,6 +14,7 @@ import numpy as np
 import plotly.figure_factory as ff
 import plotly.graph_objs as go
 import plotly.express as px
+import urllib.parse
 
 import pandas as pd
 from datetime import timedelta  
@@ -132,34 +135,22 @@ def display_namespace_info(namespace):
                     status_text = ", ".join([f"{key} = {value}" for key, value in non_ready_statuses.items()])
                     st.write(f":red[{pod_name}: {status_text}]")
 
-def kubernetes_dashboard(start_datetime, end_datetime):
-    st.write("# Kubernetes Dashboard")
-    options = st.multiselect(
-        'Namespaces',
-        ['kube-system', 'monitoring', 'default'],
-        ['kube-system']
-    )
-
-    if len(options) == 0:
-        st.write("Selected all")
-
-    cols = st.columns(len(options))
-    for i, namespace in enumerate(options):
-        with cols[i]:
-            display_namespace_info(namespace)
-
-def to_datetime(dt64):
-    return (dt64 - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
-
-# TODO: give pandaframe to users
-# TODO: test and make use of @st.cache_data and other cache
+# TODO: take promql as jinja templates plus vars
+# TODO: also return pandaframe to users ?
+# TODO: test and make use of @st.cache_data and other 
 def promql(prometheus_query, start_time=None, end_time=None):
     # Replace with your Prometheus server URL
     prometheus_server = 'http://localhost:9090'
 
     # Construct the full URL for the query
-    # TODO: is 60s best value, should it be configurable
-    query_url = f"{prometheus_server}/api/v1/query_range?query={prometheus_query}&start={start_time}&end={end_time}&step=60s"
+    query_url = f"{prometheus_server}/api/v1"
+    
+    prometheus_query = urllib.parse.quote(prometheus_query)
+    if end_time != None:
+        # TODO: is 60s best value? should it be configurable
+        query_url = f"{query_url}/query_range?query={prometheus_query}&start={start_time}&end={end_time}&step=60s"
+    else: 
+        query_url = f"{query_url}/query?query={prometheus_query}&time={start_time}"
 
     # Perform the query
     response = requests.get(query_url)
@@ -168,8 +159,6 @@ def promql(prometheus_query, start_time=None, end_time=None):
         raise Exception("Query failed")
 
     return data
-
-
 
 #FIXME: allow full customisation of update layout
 #FIXME: ensure data missing creates empty zones in the graph
@@ -219,64 +208,146 @@ def line_chart(data, title):
 
 
 # FIXME: use real datas
-def gauge_chart(data, title):
+def gauge_chart(a, b, title=""):
+    value = int(a['data']['result'][0]['value'][1])
+    total = int(b['data']['result'][0]['value'][1])
     fig = go.Figure(go.Indicator(
     mode = "gauge+number",
-    value = 210,
+    value = int(a['data']['result'][0]['value'][1]),
     domain = {'x': [0, 1], 'y': [0, 1]},
-    title = {'text': "Pods capacity", 'font': {'size': 24} },
-    # delta = {'reference': 400, 'increasing': {'color': "Green"}},
+    title = {'text': title, 'font': {'size': 24} },
     gauge = {
-        'axis': {'range': [None, 500], 'tickwidth': 1, 'tickcolor': "darkblue"},
-        # 'bar': {'color': "darkblue"},
+        'axis': {'range': [None, total], 'tickwidth': 1, 'tickcolor': "darkblue"},
         'bgcolor': "red",
         'borderwidth': 2,
         'bordercolor': "gray",
         'steps': [
-            {'range': [0, 250], 'color': 'green'},
-            {'range': [250, 400], 'color': 'orange'}],
+            {'range': [0, total*0.7], 'color': 'green'},
+            {'range': [250, total*0.9], 'color': 'orange'}],
         'threshold': {
             'line': {'color': "black", 'width': 4},
             'thickness': 0.75,
-            'value': 210}}))
+            'value': value
+            }}))
 
     fig.update_layout( font = {'color': "green", 'family': "Arial"})
 
     st.plotly_chart(fig, use_container_width=True)
 
 def bar_chart(data, title):
+    result_list = []
+    for entry in data['data']['result']:
+        pod_name = entry['metric'].get('pod', None)
+        if pod_name != None:
+            value_1 = int(entry['value'][1])
+            # FIXME: check real calculation !!!!!!!
+            result_list.append({'pod_name': pod_name, 'value_1': value_1/(1024*1024)/2})
+
+    # FIXME: those sums operations should be either in promql or panda
+    result_dict = {}
+    for entry in result_list:
+        pod_name = entry['pod_name']
+        value_1 = int(entry['value_1'])
+        
+        if pod_name in result_dict:
+            result_dict[pod_name] += value_1
+        else:
+            result_dict[pod_name] = value_1
+
+    # Creating a Pandas DataFrame from the list of dictionaries
+    df = pd.DataFrame({'pod_name': list(result_dict.keys()), 'Mi': list(result_dict.values())})
+
     # Generate some random data using NumPy
-    categories = ['node-1', 'node-2', 'node-3', 'node-4']
-    values = np.random.randint(1, 100, size=len(categories))
+    fig = px.bar(df, x='pod_name', y='Mi', title='Container Memory Usage')
 
-    # Create a bar chart using Plotly
-    fig = go.Figure(data=[go.Bar(x=categories, y=values)])
-
-    # Customize the chart layout
-    fig.update_layout(
-        title='Pods per nodes',
-        # xaxis_title='Categories',
-        # yaxis_title='Values',
-        showlegend=False  # Hide legend
-    )
     st.plotly_chart(fig, use_container_width=True)
 
+def init_app():
+    page_names_to_funcs = {
+        "—": kubernetes_dashboard,
+        "metrics": prom_dashboard
+    }
+
+    st.set_page_config(
+        page_title="Graftool",
+        page_icon="🧊",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+
+    demo_name = st.sidebar.selectbox("Choose a demo", page_names_to_funcs.keys())
+
+    today = datetime.datetime.now()
+    next_year = today.year + 1
+    jan_1 = datetime.date(next_year, 1, 1)
+    dec_31 = datetime.date(next_year, 12, 31)
+
+    d = st.sidebar.date_input(
+        "Date range",
+        (today, today),
+        format="MM.DD.YYYY",
+    )
+
+    # TODO: set as curr date
+    ts = st.sidebar.time_input('Start time', key='start_time')
+    te = st.sidebar.time_input('End time', datetime.datetime.now()+timedelta(minutes=15), key='end_time')
+    # TODO: set all paramters as "app_config" (global? classes?) var
+    # TODO: make "T-5mns" "T-10mns" "T-15mns"
+
+
+    d_start = d[0] # numpy.datetime64
+    d_end = d[1] # numpy.datetime64
+
+    d_start = pd.to_datetime(d[0])
+    d_start = pd.to_datetime(d_start, unit='ms')
+    d_end = pd.to_datetime(d[1])
+    
+    # Combine date and time into datetime.datetime
+    start_datetime = datetime.datetime.combine(d_start, ts)
+    end_datetime = datetime.datetime.combine(d_end, te)
+
+    page_names_to_funcs[demo_name](start_datetime, end_datetime)
+
+def kubernetes_dashboard(start_datetime, end_datetime):
+    st.write("# Kubernetes Dashboard")
+    options = st.multiselect(
+        'Namespaces',
+        ['kube-system', 'monitoring', 'default'],
+        ['kube-system']
+    )
+
+    if len(options) == 0:
+        st.write("Selected all")
+
+    cols = st.columns(len(options))
+    for i, namespace in enumerate(options):
+        with cols[i]:
+            display_namespace_info(namespace)
 
 # FIXME: make some union operator for prom metrics
 # FIXME: default to template
 def prom_dashboard(start_datetime, end_datetime):
     st.write("# Prometheus metrics")
 
-    line_chart(
-        promql("container_cpu_usage_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()), 
-        title="CPU Usage Over Time"
-    )
-
     col1, col2 = st.columns(2)
     with col1:
         line_chart(
-            promql("container_memory_usage_bytes", start_datetime.timestamp(), end_datetime.timestamp()), 
-            title="Memory"
+            promql("container_cpu_usage_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()), 
+            title="CPU Usage Over Time"
+        )
+
+    with col2:
+        bar_chart(
+            promql("container_memory_usage_bytes", start_datetime.timestamp()),
+            title="container_memory_usage_bytes"
+        )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        gauge_chart(
+            promql("kubelet_running_pods", start_datetime.timestamp()), 
+            promql("kube_node_status_capacity{resource=\"pods\"}", start_datetime.timestamp()),
+            'Pods Capacity'
         )
 
     with col2:
@@ -285,68 +356,4 @@ def prom_dashboard(start_datetime, end_datetime):
             title="Cpu system"
         )
 
-def prometheus_poc(start_datetime, end_datetime):
-    st.write("# Fake datas as Poc")
-        # st.write(promql("sum(kube_pod_info)/sum(kube_node_status_allocatable{resource=\"pods\"})"))
-    col1, col2 = st.columns(2)
-    with col1:
-        # st.write(promql("sum(kube_node_status_allocatable{resource=\"pods\"})"))
-        gauge_chart(
-            promql("sum(kube_node_status_allocatable{resource=\"pods\"})", start_datetime.timestamp(), end_datetime.timestamp()),
-            title="test"
-        )
-
-    with col2:
-        bar_chart(
-            promql("containerXXX", start_datetime.timestamp(), end_datetime.timestamp()),
-            title="test"
-        )
-
-page_names_to_funcs = {
-    "—": kubernetes_dashboard,
-    "metrics": prom_dashboard,
-    "proof of concept": prometheus_poc
-}
-st.set_page_config(
-    page_title="Graftool",
-    page_icon="🧊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://www.extremelycoolapp.com/help',
-        'Report a bug': "https://www.extremelycoolapp.com/bug",
-        'About': "# This is a header. This is an *extremely* cool app!"
-    }
-)
-
-demo_name = st.sidebar.selectbox("Choose a demo", page_names_to_funcs.keys())
-
-today = datetime.datetime.now()
-next_year = today.year + 1
-jan_1 = datetime.date(next_year, 1, 1)
-dec_31 = datetime.date(next_year, 12, 31)
-
-d = st.sidebar.date_input(
-    "Date range",
-    (today, today),
-    format="MM.DD.YYYY",
-)
-
-# TODO: set as curr date
-ts = st.sidebar.time_input('Start time', key='start_time')
-te = st.sidebar.time_input('End time', datetime.datetime.now()+timedelta(minutes=45), key='end_time')
-# TODO: set all paramters as "app_config" (global? classes?) var
-# TODO: make "T-5mns" "T-10mns" "T-15mns"
-
-d_start = d[0] # numpy.datetime64
-d_end = d[1] # numpy.datetime64
-
-d_start = pd.to_datetime(d[0])
-d_end = pd.to_datetime(d[1])
-   
-# Combine date and time into datetime.datetime
-start_datetime = datetime.datetime.combine(d_start, ts)
-end_datetime = datetime.datetime.combine(d_end, te)
-
-page_names_to_funcs[demo_name](start_datetime, end_datetime)
-
+init_app()
