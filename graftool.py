@@ -1,6 +1,7 @@
 # TODO: add some debug flag
 # TODO: add minimalisics unit test
 # TODO: create or find State timeline plus  Time series
+# FIXME: catch errors ?
 # streamlit-heatmap-chart
 # streamlit-chart-card
 
@@ -20,6 +21,9 @@ import pandas as pd
 from datetime import timedelta  
 from kubernetes import client, config
 
+from prometheus_pandas import query
+
+# TODO: @record_replay
 def get_pods(namespace):
     config.load_kube_config()  # or load_incluster_config() if running inside a cluster
     v1 = client.CoreV1Api()
@@ -136,136 +140,94 @@ def display_namespace_info(namespace):
                     st.write(f":red[{pod_name}: {status_text}]")
 
 # TODO: take promql as jinja templates plus vars
-# TODO: also return pandaframe to users ?
-# TODO: test and make use of @st.cache_data and other 
+# TODO: test and make use of @st.cache_data and other
+
+#FIXME: signature should be df Or serie
+def prom_label(df, label):
+    if type(df) is pd.core.series.Series :
+        return df.rename(index=lambda x:prom_split_label(x, label))
+    else:
+        return df.rename(columns={col: prom_split_label(col, label) for col in df.columns})
+
+#FIXME: signature: should be column or row
+#FIXME: exception if not found label
+def prom_split_label(column_name, label):
+    return column_name.split(f'{label}=')[1].split(',')[0].strip('"')
+
 def promql(prometheus_query, start_time=None, end_time=None):
     # Replace with your Prometheus server URL
-    prometheus_server = 'http://localhost:9090'
+    p = query.Prometheus('https://prometheus.demo.do.prometheus.io')
 
-    # Construct the full URL for the query
-    query_url = f"{prometheus_server}/api/v1"
-    
-    prometheus_query = urllib.parse.quote(prometheus_query)
     if end_time != None:
         # TODO: is 60s best value? should it be configurable
-        query_url = f"{query_url}/query_range?query={prometheus_query}&start={start_time}&end={end_time}&step=60s"
+        return p.query_range(
+            prometheus_query,
+            start_time, end_time, '60s')
     else: 
-        query_url = f"{query_url}/query?query={prometheus_query}&time={start_time}"
-
-    # Perform the query
-    response = requests.get(query_url)
-    data = response.json()
-    if data['status'] != 'success':
-        raise Exception("Query failed")
-
-    return data
+        return p.query(
+            prometheus_query,
+            start_time)
 
 #FIXME: allow full customisation of update layout
 #FIXME: ensure data missing creates empty zones in the graph
-def line_chart(data, title):
-    # Parse the response
-    results = data['data']['result']
+def line_chart(df, title):
+    fig = px.line(df)
 
-    # Convert the results into a DataFrame
-    timestamps = []
-    values = []
-
-    # Parse the response
-    results = data['data']['result']
-
-    # Create a Plotly figure
-    fig = go.Figure()
-
-    # st.expander(st.dataframe(pd.DataFrame({"first column": results}), use_container_width=True))
-    metrics = []
-    # Loop through each metric and add a separate trace
-    for result in results:
-        if  result['metric'].get('pod', None) != None:
-            pod_name = result['metric'].get('pod', 'unknown_pod')  # Get the pod name, default to 'unknown_pod' if not present
-            timestamps = [datetime.datetime.fromtimestamp(float(value[0])) for value in result['values']]
-            values = [float(value[1]) for value in result['values']]
-            metric = result['metric']
-            metrics.append(metric)
-            fig.add_trace(go.Scatter(x=timestamps, y=values, mode='lines', name=pod_name))
-
-    # Update layout
     fig.update_layout(
         title=title,
-        xaxis_title="Time",
+        xaxis_title="",
         yaxis_title="CPU Usage",
         xaxis=dict(
             tickformat='%Y-%m-%d %H:%M:%S',
-            tickmode='auto',
-            nticks=10,
-            tickangle=-45
+            tickangle=-45,
+        ),
+        legend=dict(
+            itemwidth=30,
+            orientation="h",
+            y=-1
         )
     )
 
     # Display the figure in Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
-    # st.dataframe(metrics)
-
-
-# FIXME: use real datas
-def gauge_chart(a, b, title=""):
-    value = int(a['data']['result'][0]['value'][1])
-    total = int(b['data']['result'][0]['value'][1])
-    fig = go.Figure(go.Indicator(
-    mode = "gauge+number",
-    value = int(a['data']['result'][0]['value'][1]),
-    domain = {'x': [0, 1], 'y': [0, 1]},
-    title = {'text': title, 'font': {'size': 24} },
-    gauge = {
-        'axis': {'range': [None, total], 'tickwidth': 1, 'tickcolor': "darkblue"},
-        'bgcolor': "red",
-        'borderwidth': 2,
-        'bordercolor': "gray",
-        'steps': [
-            {'range': [0, total*0.7], 'color': 'green'},
-            {'range': [250, total*0.9], 'color': 'orange'}],
-        'threshold': {
-            'line': {'color': "black", 'width': 4},
-            'thickness': 0.75,
-            'value': value
-            }}))
+def gauge_chart(value, total, title=""):
+    fig = go.Figure(
+        go.Indicator(
+            mode = "gauge+number",
+            value = value.iloc[0],
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': title, 'font': {'size': 24} },
+            gauge = {
+                'axis': {'range': [None, total.iloc[0]], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'bgcolor': "red",
+                'borderwidth': 2,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, total.iloc[0]*0.7], 'color': 'green'},
+                    {'range': [total.iloc[0]*0.7, total.iloc[0]*0.9], 'color': 'orange'}],
+                'threshold': {
+                    'line': {'color': "black", 'width': 4},
+                    'thickness': 0.75,
+                    'value': value.iloc[0]
+                    }}
+        )
+    )
 
     fig.update_layout( font = {'color': "green", 'family': "Arial"})
 
     st.plotly_chart(fig, use_container_width=True)
 
-def bar_chart(data, title):
-    result_list = []
-    for entry in data['data']['result']:
-        pod_name = entry['metric'].get('pod', None)
-        if pod_name != None:
-            value_1 = int(entry['value'][1])
-            # FIXME: check real calculation !!!!!!!
-            result_list.append({'pod_name': pod_name, 'value_1': value_1/(1024*1024)/2})
-
-    # FIXME: those sums operations should be either in promql or panda
-    result_dict = {}
-    for entry in result_list:
-        pod_name = entry['pod_name']
-        value_1 = int(entry['value_1'])
-        
-        if pod_name in result_dict:
-            result_dict[pod_name] += value_1
-        else:
-            result_dict[pod_name] = value_1
-
-    # Creating a Pandas DataFrame from the list of dictionaries
-    df = pd.DataFrame({'pod_name': list(result_dict.keys()), 'Mi': list(result_dict.values())})
-
+def bar_chart(df, title):
     # Generate some random data using NumPy
-    fig = px.bar(df, x='pod_name', y='Mi', title='Container Memory Usage')
+    fig = px.bar(df, x=0, color=0)
 
     st.plotly_chart(fig, use_container_width=True)
 
 def init_app():
     page_names_to_funcs = {
-        "—": kubernetes_dashboard,
-        "metrics": prom_dashboard
+        "—": prom_dashboard,
+        "kubernetes": kubernetes_dashboard
     }
 
     st.set_page_config(
@@ -278,9 +240,6 @@ def init_app():
     demo_name = st.sidebar.selectbox("Choose a demo", page_names_to_funcs.keys())
 
     today = datetime.datetime.now()
-    next_year = today.year + 1
-    jan_1 = datetime.date(next_year, 1, 1)
-    dec_31 = datetime.date(next_year, 12, 31)
 
     d = st.sidebar.date_input(
         "Date range",
@@ -332,28 +291,24 @@ def prom_dashboard(start_datetime, end_datetime):
     col1, col2 = st.columns(2)
     with col1:
         line_chart(
-            promql("container_cpu_usage_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()), 
+            prom_label(
+                promql("process_cpu_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()),
+                'instance'),
             title="CPU Usage Over Time"
         )
 
     with col2:
         bar_chart(
-            promql("container_memory_usage_bytes", start_datetime.timestamp()),
-            title="container_memory_usage_bytes"
+            prom_label(
+                promql("go_memstats_frees_total", start_datetime.timestamp()),
+                'instance'),
+            title="go_memstats_frees_total"
         )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        gauge_chart(
-            promql("kubelet_running_pods", start_datetime.timestamp()), 
-            promql("kube_node_status_capacity{resource=\"pods\"}", start_datetime.timestamp()),
-            'Pods Capacity'
-        )
-
-    with col2:
-        line_chart(
-            promql("container_cpu_system_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()), 
-            title="Cpu system"
-        )
+    gauge_chart(
+        promql("sum(go_memstats_frees_total)", start_datetime.timestamp()), 
+        promql("sum(go_memstats_alloc_bytes_total)", start_datetime.timestamp()),
+        'Pods Capacity'
+    )
 
 init_app()

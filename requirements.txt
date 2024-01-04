@@ -2,3 +2,4 @@ streamlit
 plotly
 scipy
 kubernetes
+prometheus_pandas
