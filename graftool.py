@@ -296,24 +296,28 @@ def prom_dashboard(start_datetime, end_datetime):
     col1, col2 = st.columns(2)
     with col1:
         line_chart(
-            prom_label(
-                promql("process_cpu_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()),
-                'instance'),
-            title="CPU Usage Over Time"
+            promql("process_cpu_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()),
+            title="process_cpu_seconds_total in range", extract_label="instance"
+        )
+
+    with col2:
+        gauge_chart(
+            promql("sum(go_memstats_frees_total)", end_datetime.timestamp()), 
+            promql("sum(go_memstats_alloc_bytes_total)", end_datetime.timestamp()),
+            'go mem free / total (instant at end time)'
+        )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        bar_chart(
+            promql("go_memstats_frees_total", start_datetime.timestamp()),
+            title="go_memstats_frees_total (instant at start time)", extract_label="instance"
         )
 
     with col2:
         bar_chart(
-            prom_label(
-                promql("go_memstats_frees_total", start_datetime.timestamp()),
-                'instance'),
-            title="go_memstats_frees_total"
+            promql("go_memstats_frees_total", end_datetime.timestamp()),
+            title="go_memstats_frees_total (instant at end time)", extract_label="instance"        
         )
-
-    gauge_chart(
-        promql("sum(go_memstats_frees_total)", start_datetime.timestamp()), 
-        promql("sum(go_memstats_alloc_bytes_total)", start_datetime.timestamp()),
-        'Pods Capacity'
-    )
 
 init_app()
