@@ -203,7 +203,6 @@ def gauge_chart(value, total, title=""):
             mode = "gauge+number",
             value = value.iloc[0],
             domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': title, 'font': {'size': 24} },
             gauge = {
                 'axis': {'range': [None, total.iloc[0]], 'tickwidth': 1, 'tickcolor': "darkblue"},
                 'bgcolor': "red",
@@ -220,7 +219,14 @@ def gauge_chart(value, total, title=""):
         )
     )
 
-    fig.update_layout( font = {'color': "green", 'family': "Arial"})
+    fig.update_layout(
+        title={
+        'text': title,
+        'y':0.96,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'}
+    )
 
     st.plotly_chart(fig, use_container_width=True)
 
