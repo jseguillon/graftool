@@ -253,25 +253,18 @@ def init_app():
 
     today = datetime.datetime.now()
 
-    d = st.sidebar.date_input(
-        "Date range",
-        (today, today),
-        format="MM.DD.YYYY",
-    )
+    ds = st.sidebar.date_input("Start date", today-timedelta(hours=24), key='start_date')
+    ts = st.sidebar.time_input('Start time', today-timedelta(hours=1), key='start_time', step=60)
 
-    # TODO: set as curr date
-    ts = st.sidebar.time_input('Start time', key='start_time')
-    te = st.sidebar.time_input('End time', datetime.datetime.now()+timedelta(minutes=15), key='end_time')
-    # TODO: set all paramters as "app_config" (global? classes?) var
-    # TODO: make "T-5mns" "T-10mns" "T-15mns"
+    de = st.sidebar.date_input("End date", today, key='end_date')
+    te = st.sidebar.time_input('End time', today, key='end_time', step=60)
 
+    d_start = ds # numpy.datetime64
+    d_end = de # numpy.datetime64
 
-    d_start = d[0] # numpy.datetime64
-    d_end = d[1] # numpy.datetime64
-
-    d_start = pd.to_datetime(d[0])
+    d_start = pd.to_datetime(ds)
     d_start = pd.to_datetime(d_start, unit='ms')
-    d_end = pd.to_datetime(d[1])
+    d_end = pd.to_datetime(de)
     
     # Combine date and time into datetime.datetime
     start_datetime = datetime.datetime.combine(d_start, ts)
