@@ -170,21 +170,27 @@ def promql(prometheus_query, start_time=None, end_time=None):
 
 #FIXME: allow full customisation of update layout
 #FIXME: ensure data missing creates empty zones in the graph
-def line_chart(df, title):
-    fig = px.line(df)
+def line_chart(df, title, extract_label=None):
+    if extract_label: 
+        df = prom_label(df, extract_label)
+
+    fig = px.line(df, markers=True)
 
     fig.update_layout(
-        title=title,
+        title={
+        'text': title,
+        'y':0.96,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'},
+
         xaxis_title="",
-        yaxis_title="CPU Usage",
+        yaxis_title="",
         xaxis=dict(
             tickformat='%Y-%m-%d %H:%M:%S',
-            tickangle=-45,
         ),
         legend=dict(
-            itemwidth=30,
-            orientation="h",
-            y=-1
+            orientation="h"
         )
     )
 
