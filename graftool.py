@@ -230,9 +230,20 @@ def gauge_chart(value, total, title=""):
 
     st.plotly_chart(fig, use_container_width=True)
 
-def bar_chart(df, title):
+def bar_chart(df, title, extract_label=None):
+    if extract_label: 
+        df = prom_label(df, extract_label)
+
     # Generate some random data using NumPy
-    fig = px.bar(df, x=0, color=0)
+    fig = px.bar(df, x=0, color=0, title=title)
+    fig.update_layout(
+        title={
+        'text': title,
+        'y':0.96,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'}
+    )
 
     st.plotly_chart(fig, use_container_width=True)
 
