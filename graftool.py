@@ -162,7 +162,7 @@ def promql(prometheus_query, start_time=None, end_time=None):
         # TODO: is 60s best value? should it be configurable
         return p.query_range(
             prometheus_query,
-            start_time, end_time, '60s')
+            start_time, end_time, (end_time-start_time)/20)
     else: 
         return p.query(
             prometheus_query,
