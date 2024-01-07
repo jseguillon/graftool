@@ -184,26 +184,23 @@ def line_chart(df, title, extract_label=None):
     st.plotly_chart(fig, use_container_width=True)
 
 def gauge_chart(value, total, title="", warn_factor=0.7, alarm_factor=0.9):
-    plottly_value=value.iloc[0]
-    plottly_total=total.iloc[0]
-
     fig = go.Figure(
         go.Indicator(
             mode = "gauge+number",
-            value = plottly_value,
+            value = value,
             domain = {'x': [0, 1], 'y': [0, 1]},
             gauge = {
-                'axis': {'range': [None, plottly_total], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'axis': {'range': [None, total], 'tickwidth': 1, 'tickcolor': "darkblue"},
                 'bgcolor': "red",
                 'borderwidth': 2,
                 'bordercolor': "gray",
                 'steps': [
-                    {'range': [0, plottly_value*warn_factor], 'color': 'green'},
-                    {'range': [plottly_total*warn_factor, plottly_total*alarm_factor], 'color': 'orange'}],
+                    {'range': [0, total*warn_factor], 'color': 'green'},
+                    {'range': [total*warn_factor, total*alarm_factor], 'color': 'orange'}],
                 'threshold': {
                     'line': {'color': "black", 'width': 4},
                     'thickness': 0.75,
-                    'value': plottly_value
+                    'value': value
                     }}
         )
     )
@@ -295,9 +292,8 @@ def prom_dashboard(start_datetime, end_datetime):
 
     with col2:
         gauge_chart(
-            promql("sum(go_memstats_frees_total)", end_datetime.timestamp()), 
-            promql("sum(go_memstats_alloc_bytes_total)", end_datetime.timestamp()),
-            'go mem free / total (instant at end time)'
+            promql("sum(go_memstats_frees_total)", end_datetime.timestamp()).iloc[0]/10e9,
+            promql("sum(go_memstats_alloc_bytes_total)", end_datetime.timestamp()).iloc[0]/10e10,
         )
 
     col1, col2 = st.columns(2)
