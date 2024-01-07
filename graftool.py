@@ -1,21 +1,9 @@
-# TODO: add some debug flag
-# TODO: add minimalisics unit test
-# TODO: create or find State timeline plus  Time series
-# FIXME: catch errors ?
-# streamlit-heatmap-chart
-# streamlit-chart-card
-
-# (https://medium.com/quiq-blog/using-plotly-timelines-to-visualize-thread-activity-c135bb17880)
-
 import datetime
-import requests
 import streamlit as st
-import json
 import numpy as np
 import plotly.figure_factory as ff
 import plotly.graph_objs as go
 import plotly.express as px
-import urllib.parse
 
 import pandas as pd
 from datetime import timedelta  
@@ -127,11 +115,7 @@ def display_namespace_info(namespace):
                             status_text = ", ".join([f"{key} = {value}" for key, value in non_ready_statuses.items()])
                             st.write(f":red[{pod_name}: {status_text}]")
 
-# TODO: take promql as jinja templates plus vars
-# TODO: test and make use of @st.cache_data and other
-
 #FIXME: signature should be df Or serie
-
 def get_plotly_title_defaults():
     return dict(y=0.92, x=0.5, xanchor="center", yanchor='top')
 
@@ -160,8 +144,7 @@ def promql(prometheus_query, start_time=None, end_time=None):
             prometheus_query,
             start_time)
 
-#FIXME: allow full customisation of update layout
-#FIXME: ensure data missing creates empty zones in the graph
+
 def line_chart(df, title, extract_label=None):
     if extract_label: 
         df = prom_label(df, extract_label)
@@ -230,7 +213,7 @@ def bar_chart(df, title, extract_label=None):
 
 def init_app():
     page_names_to_funcs = {
-        "—": prom_dashboard,
+        "📈 prometheus": prom_dashboard,
         "kubernetes": kubernetes_dashboard
     }
 
@@ -287,26 +270,31 @@ def prom_dashboard(start_datetime, end_datetime):
     with col1:
         line_chart(
             promql("process_cpu_seconds_total", start_datetime.timestamp(), end_datetime.timestamp()),
-            title="process_cpu_seconds_total in range", extract_label="instance"
+            title="process_cpu_seconds_total in range",
+            extract_label="instance"
         )
 
     with col2:
         gauge_chart(
             promql("sum(go_memstats_frees_total)", end_datetime.timestamp()).iloc[0]/10e9,
             promql("sum(go_memstats_alloc_bytes_total)", end_datetime.timestamp()).iloc[0]/10e10,
+            title='go mem free / total (instant at end time)',
+            alarm_factor=0.9
         )
 
     col1, col2 = st.columns(2)
     with col1:
         bar_chart(
             promql("go_memstats_frees_total", start_datetime.timestamp()),
-            title="go_memstats_frees_total (instant at start time)", extract_label="instance"
+            title="go_memstats_frees_total (instant at start time)", 
+            extract_label="instance"
         )
 
     with col2:
         bar_chart(
             promql("go_memstats_frees_total", end_datetime.timestamp()),
-            title="go_memstats_frees_total (instant at end time)", extract_label="instance"        
+            title="go_memstats_frees_total (instant at end time)",
+            extract_label="instance"        
         )
 
 init_app()
