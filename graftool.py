@@ -13,13 +13,19 @@ from prometheus_pandas import query
 
 # TODO: @record_replay
 def get_pods(namespace):
-    config.load_kube_config()  # or load_incluster_config() if running inside a cluster
-    v1 = client.CoreV1Api()
-    pod_list = v1.list_namespaced_pod(namespace)
-    return pod_list
+    try:
+        config.load_kube_config()  # or load_incluster_config() if running inside a cluster
+        v1 = client.CoreV1Api()
+    
+        pod_list = v1.list_namespaced_pod(namespace)
+        return pod_list
+    except:
+        st.error("Oh no, Streamlit can't reach any Kubernetes cluster. Maybe your running online demo ?")
 
 def count_status(pod_list):
     pods_status = []
+    if pod_list is None:
+        return
 
     for pod in pod_list.items:
         pod_status = {'name': pod.metadata.name, 'statuses': {}}
@@ -59,6 +65,9 @@ def get_color_gradient(start_color, end_color, n):
 def kube_pie(pod_data):
     status_counts = {'Ready': 0, 'Completed': 0}
     other_statuses = {}
+
+    if pod_data == None: 
+        return
 
     # Extracting and counting statuses
     for pod in pod_data:
@@ -103,17 +112,18 @@ def display_namespace_info(namespace):
         st.markdown(style, unsafe_allow_html=True)
         st.markdown(f"## {namespace}")
 
-        st.plotly_chart(kube_pie(pods_status), use_container_width=True)
+        if pods_status is not None: 
+            st.plotly_chart(kube_pie(pods_status), use_container_width=True)
 
-        with st.expander("Pods with errors", expanded=True ):
-            for pod in pods_status:
-                    pod_name = pod['name']
-                    non_ready_statuses = {k: v for k, v in pod['statuses'].items() if k != 'Ready' or v < 1}
+            with st.expander("Pods with errors", expanded=True ):
+                for pod in pods_status:
+                        pod_name = pod['name']
+                        non_ready_statuses = {k: v for k, v in pod['statuses'].items() if k != 'Ready' or v < 1}
 
-                    if non_ready_statuses:  # Only show expander if there are non-ready statuses
-                        
-                            status_text = ", ".join([f"{key} = {value}" for key, value in non_ready_statuses.items()])
-                            st.write(f":red[{pod_name}: {status_text}]")
+                        if non_ready_statuses:  # Only show expander if there are non-ready statuses
+                            
+                                status_text = ", ".join([f"{key} = {value}" for key, value in non_ready_statuses.items()])
+                                st.write(f":red[{pod_name}: {status_text}]")
 
 #FIXME: signature should be df Or serie
 def get_plotly_title_defaults():
