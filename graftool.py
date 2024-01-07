@@ -7,7 +7,7 @@ import utils.kubernetes as gt_k8s
 def init_app():
     page_names_to_funcs = {
         "📈 prometheus": prom_dashboard,
-        "kubernetes": kubernetes_dashboard
+        "🪐 kubernetes": kubernetes_dashboard
     }
 
     st.set_page_config(page_title="Graftool", page_icon="🧊", layout="wide", initial_sidebar_state="expanded")
@@ -18,7 +18,7 @@ def init_app():
     page_names_to_funcs[demo_name](time_range[0],time_range[1])
 
 def prom_dashboard(start_datetime, end_datetime):
-    st.write("# Prometheus metrics")
+    st.write("# 📈 Prometheus metrics")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -52,7 +52,7 @@ def prom_dashboard(start_datetime, end_datetime):
         )
 
 def kubernetes_dashboard(start_datetime, end_datetime):
-    st.write("# Kubernetes Dashboard")
+    st.write("# 🪐 Kubernetes Dashboard")
     options = st.multiselect(
         'Namespaces',
         ['kube-system', 'monitoring', 'default'],
