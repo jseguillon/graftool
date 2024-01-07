@@ -96,7 +96,12 @@ def kube_pie(pod_data):
 
     # Creating the pie chart
     fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.3, marker_colors=colors)])
-    # fig.update_layout(title_text='Pods Container Statuses')
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+            legend=dict(
+            orientation="h"
+        )
+    )
 
     return fig
 
@@ -105,44 +110,31 @@ def display_namespace_info(namespace):
 
     container1 = st.container(border=True)
     style = "<style>h2 {text-align: center;}</style>"
+
     with container1:
         st.markdown(style, unsafe_allow_html=True)
         st.markdown(f"## {namespace}")
 
-        total_pods = len(pods_status)
-        total_ready = sum(pod['statuses'].get('Ready', 0) for pod in pods_status)
-        total_crashloop = sum(pod['statuses'].get('CrashloopBackoff', 0) for pod in pods_status)
-        total_create_error = sum(pod['statuses'].get('CreateContainerError', 0) for pod in pods_status)
-        has_error = total_crashloop != 0 or total_create_error != 0
+        st.plotly_chart(kube_pie(pods_status), use_container_width=True)
 
-        pods_text = f" Pods: {total_pods}"
-        col1, col2 = st.columns(2)
-        with col1:
-            pods_text = f":red[{pods_text}]" if has_error else f":green[{pods_text}]"
-            st.markdown(f"### {pods_text}")
+        with st.expander("Pods with errors", expanded=True ):
+            for pod in pods_status:
+                    pod_name = pod['name']
+                    non_ready_statuses = {k: v for k, v in pod['statuses'].items() if k != 'Ready' or v < 1}
 
-            st.markdown(f"#### Containers")
-            st.markdown(f"Ready: {total_ready}")
-            st.markdown(f"CrashloopBackoff: {total_crashloop}")
-            create_error_text = f"CreateContainerError: {total_create_error}"
-            create_error_text = f":red[{create_error_text}]" if has_error else f"{create_error_text}"
-            st.markdown(create_error_text)
-        with col2:
-            st.plotly_chart(kube_pie(pods_status), use_container_width=True)
-
-    for pod in pods_status:
-            pod_name = pod['name']
-            non_ready_statuses = {k: v for k, v in pod['statuses'].items() if k != 'Ready' or v < 1}
-
-            if non_ready_statuses:  # Only show expander if there are non-ready statuses
-                with st.expander("Pods with errors", expanded=True ):
-                    status_text = ", ".join([f"{key} = {value}" for key, value in non_ready_statuses.items()])
-                    st.write(f":red[{pod_name}: {status_text}]")
+                    if non_ready_statuses:  # Only show expander if there are non-ready statuses
+                        
+                            status_text = ", ".join([f"{key} = {value}" for key, value in non_ready_statuses.items()])
+                            st.write(f":red[{pod_name}: {status_text}]")
 
 # TODO: take promql as jinja templates plus vars
 # TODO: test and make use of @st.cache_data and other
 
 #FIXME: signature should be df Or serie
+
+def get_plotly_title_defaults():
+    return dict(y=0.96, x=0.5, xanchor="center", yanchor='top')
+
 def prom_label(df, label):
     if type(df) is pd.core.series.Series :
         return df.rename(index=lambda x:prom_split_label(x, label))
@@ -176,16 +168,10 @@ def line_chart(df, title, extract_label=None):
 
     fig = px.line(df, markers=True)
 
+    plottly_title=get_plotly_title_defaults()
+    plottly_title.update({'text': title})
     fig.update_layout(
-        title={
-        'text': title,
-        'y':0.96,
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'},
-
-        xaxis_title="",
-        yaxis_title="",
+        title=plottly_title,
         xaxis=dict(
             tickformat='%Y-%m-%d %H:%M:%S',
         ),
@@ -219,13 +205,10 @@ def gauge_chart(value, total, title=""):
         )
     )
 
+    plottly_title=get_plotly_title_defaults()
+    plottly_title.update({'text': title})
     fig.update_layout(
-        title={
-        'text': title,
-        'y':0.96,
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'}
+        title=plottly_title
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -236,13 +219,11 @@ def bar_chart(df, title, extract_label=None):
 
     # Generate some random data using NumPy
     fig = px.bar(df, x=0, color=0, title=title)
+
+    plottly_title=get_plotly_title_defaults()
+    plottly_title.update({'text': title})
     fig.update_layout(
-        title={
-        'text': title,
-        'y':0.96,
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'}
+        title=plottly_title
     )
 
     st.plotly_chart(fig, use_container_width=True)
