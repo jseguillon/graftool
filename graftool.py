@@ -133,7 +133,7 @@ def display_namespace_info(namespace):
 #FIXME: signature should be df Or serie
 
 def get_plotly_title_defaults():
-    return dict(y=0.96, x=0.5, xanchor="center", yanchor='top')
+    return dict(y=0.92, x=0.5, xanchor="center", yanchor='top')
 
 def prom_label(df, label):
     if type(df) is pd.core.series.Series :
