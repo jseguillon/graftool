@@ -183,24 +183,27 @@ def line_chart(df, title, extract_label=None):
     # Display the figure in Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
-def gauge_chart(value, total, title=""):
+def gauge_chart(value, total, title="", warn_factor=0.7, alarm_factor=0.9):
+    plottly_value=value.iloc[0]
+    plottly_total=total.iloc[0]
+
     fig = go.Figure(
         go.Indicator(
             mode = "gauge+number",
-            value = value.iloc[0],
+            value = plottly_value,
             domain = {'x': [0, 1], 'y': [0, 1]},
             gauge = {
-                'axis': {'range': [None, total.iloc[0]], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'axis': {'range': [None, plottly_total], 'tickwidth': 1, 'tickcolor': "darkblue"},
                 'bgcolor': "red",
                 'borderwidth': 2,
                 'bordercolor': "gray",
                 'steps': [
-                    {'range': [0, total.iloc[0]*0.7], 'color': 'green'},
-                    {'range': [total.iloc[0]*0.7, total.iloc[0]*0.9], 'color': 'orange'}],
+                    {'range': [0, plottly_value*warn_factor], 'color': 'green'},
+                    {'range': [plottly_total*warn_factor, plottly_total*alarm_factor], 'color': 'orange'}],
                 'threshold': {
                     'line': {'color': "black", 'width': 4},
                     'thickness': 0.75,
-                    'value': value.iloc[0]
+                    'value': plottly_value
                     }}
         )
     )
@@ -280,8 +283,6 @@ def kubernetes_dashboard(start_datetime, end_datetime):
         with cols[i]:
             display_namespace_info(namespace)
 
-# FIXME: make some union operator for prom metrics
-# FIXME: default to template
 def prom_dashboard(start_datetime, end_datetime):
     st.write("# Prometheus metrics")
 
