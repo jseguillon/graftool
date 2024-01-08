@@ -22,7 +22,7 @@ def prom_split_label(column_name, label):
 
 def promql(prometheus_query, start_time=None, end_time=None):
     # Replace with your Prometheus server URL
-    p = query.Prometheus('https://prometheus.demo.do.prometheus.io')
+    p = query.Prometheus(st.secrets.prom_credentials.url)
 
     if end_time != None:
         # TODO: is 60s best value? should it be configurable
