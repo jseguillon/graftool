@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from openai import OpenAI
 
@@ -34,7 +35,13 @@ err="trigger reload: reload request failed: Post \"http://localhost:9093/-/reloa
 ```
 """)
 
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    open_ai_api_key = None
+    if "open_ai_api_key" in os.environ:
+        open_ai_api_key = os.environ["open_ai_api_key"]
+    else:
+        open_ai_api_key = st.secrets.OPENAI_API_KEY
+    
+    client = OpenAI(api_key=open_ai_api_key)
 
     if "openai_model" not in st.session_state:
         st.session_state["openai_model"] = "gpt-3.5-turbo"
