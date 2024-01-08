@@ -3,11 +3,13 @@ import streamlit as st
 import utils.core as gt_core
 import utils.prom as gt_prom
 import utils.kubernetes as gt_k8s
+import utils.chatbot as gt_chat
 
 def init_app():
     page_names_to_funcs = {
         "📈 prometheus": prom_dashboard,
-        "🪐 kubernetes": kubernetes_dashboard
+        "🪐 kubernetes": kubernetes_dashboard,
+        "🤖 k8s chatbot": gt_chat.chatbot
     }
 
     st.set_page_config(page_title="Graftool", page_icon="🧊", layout="wide", initial_sidebar_state="expanded")
