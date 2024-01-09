@@ -36,8 +36,8 @@ err="trigger reload: reload request failed: Post \"http://localhost:9093/-/reloa
 """)
 
     open_ai_api_key = None
-    if "open_ai_api_key" in os.environ:
-        open_ai_api_key = os.environ["open_ai_api_key"]
+    if "OPENAI_API_KEY" in os.environ:
+        open_ai_api_key = os.environ["OPENAI_API_KEY"]
     else:
         open_ai_api_key = st.secrets.OPENAI_API_KEY
     

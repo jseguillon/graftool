@@ -24,8 +24,8 @@ def prom_split_label(column_name, label):
 def promql(prometheus_query, start_time=None, end_time=None):
     # Replace with your Prometheus server URL
     prom_url = None
-    if "prom_url" in os.environ:
-        prom_url = os.environ["prom_url"]
+    if "PROM_CREDENTIALS_URL" in os.environ:
+        prom_url = os.environ["PROM_CREDENTIALS_URL"]
     else:
         prom_url = st.secrets.prom_credentials.url
 
