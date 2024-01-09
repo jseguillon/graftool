@@ -23,18 +23,19 @@ def count_status(pod_list):
     for pod in pod_list.items:
         pod_status = {'name': pod.metadata.name, 'statuses': {}}
         # Check each container status in the pod
-        for cs in pod.status.container_statuses:
-            # If the container is waiting and has a reason, count that reason
-            if cs.state.waiting and cs.state.waiting.reason:
-                reason = cs.state.waiting.reason
-                pod_status['statuses'].setdefault(reason, 0)
-                pod_status['statuses'][reason] += 1
-            # If the container is running, count it as 'Ready'
-            elif cs.state.running:
-                pod_status['statuses'].setdefault('Ready', 0)
-                pod_status['statuses']['Ready'] += 1
+        if pod.status!=None and  pod.status.container_statuses != None:
+            for cs in pod.status.container_statuses:
+                # If the container is waiting and has a reason, count that reason
+                if cs.state.waiting and cs.state.waiting.reason:
+                    reason = cs.state.waiting.reason
+                    pod_status['statuses'].setdefault(reason, 0)
+                    pod_status['statuses'][reason] += 1
+                # If the container is running, count it as 'Ready'
+                elif cs.state.running:
+                    pod_status['statuses'].setdefault('Ready', 0)
+                    pod_status['statuses']['Ready'] += 1
 
-        pods_status.append(pod_status)
+            pods_status.append(pod_status)
 
     return pods_status
 
