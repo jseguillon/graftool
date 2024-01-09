@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graftool-deployment
+  labels:
+    app: graftool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graftool
+  template:
+    metadata:
+      labels:
+        app: graftool
+    spec:
+      containers:
+        - name: graftool
+          image: jseguillon/graftool:main
+          ports:
+            - containerPort: 8501
+          resources:
+            limits:
+              cpu: "1"
+              memory: "512Gi"
+            requests:
+              cpu: "0.5"
+              memory: "128Mi"
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: graftool-secrets
+                  key: OPENAI_API_KEY
+            - name: PROMETHEUS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: graftool-secrets
+                  key: PROM_CREDENTIALS_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: graftool-service
+spec:
+  selector:
+    app: graftool
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8501
+  type: LoadBalancer
